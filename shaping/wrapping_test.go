@@ -3623,3 +3623,16 @@ func TestWrapping_oneLine_overflow_bug(t *testing.T) {
 	_, done := l.WrapNextLine(maxWidth)
 	tu.Assert(t, done)
 }
+
+func TestWrapForcedBreak(t *testing.T) {
+	f := loadOpentypeFont(t, "../font/testdata/Roboto-Regular.ttf")
+
+	s := []rune("line1\nline2")
+	// bidi segmentation will split the input at the first line
+	input := Input{Text: s, RunEnd: 5, Direction: di.DirectionLTR, Size: fixed.I(10), Face: f}
+	run := (&HarfbuzzShaper{}).Shape(input)
+
+	var l LineWrapper
+	l.Prepare(WrapConfig{BreakPolicy: Never}, []rune(s), NewSliceIterator([]Output{run}))
+	_, _ = l.WrapNextLine(math.MaxInt) // assert there is no crash
+}

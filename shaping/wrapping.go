@@ -1,6 +1,7 @@
 package shaping
 
 import (
+	"fmt"
 	"math"
 	"sort"
 
@@ -508,6 +509,7 @@ type runMapper struct {
 // current mapping value is already correct.
 func (r *runMapper) mapRun(runIdx int, run Output) {
 	if r.runIdx != runIdx || !r.valid {
+		fmt.Println(run.Runes)
 		r.mapping = mapRunesToClusterIndices3(run.Direction, run.Runes, run.Glyphs, r.mapping)
 		r.runIdx = runIdx
 		r.valid = true
@@ -1218,7 +1220,10 @@ func (l *LineWrapper) processBreakOption(option breakOption, config lineConfig) 
 	// Fill candidate line with runs until the run containing the break option.
 	l.fillUntil(l.glyphRuns, option)
 
-	currRunIndex, run, _ := l.glyphRuns.Peek()
+	currRunIndex, run, isValid := l.glyphRuns.Peek()
+	if !isValid {
+		return breakInvalid, Output{}
+	}
 	l.mapper.mapRun(currRunIndex, run)
 	if !option.isValid(l.mapper.mapping, run) {
 		// Reject invalid line break candidate and acquire a new one.
