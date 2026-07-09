@@ -1,7 +1,6 @@
 package shaping
 
 import (
-	"fmt"
 	"math"
 	"sort"
 
@@ -509,7 +508,6 @@ type runMapper struct {
 // current mapping value is already correct.
 func (r *runMapper) mapRun(runIdx int, run Output) {
 	if r.runIdx != runIdx || !r.valid {
-		fmt.Println(run.Runes)
 		r.mapping = mapRunesToClusterIndices3(run.Direction, run.Runes, run.Glyphs, r.mapping)
 		r.runIdx = runIdx
 		r.valid = true
