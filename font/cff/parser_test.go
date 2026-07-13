@@ -155,3 +155,25 @@ func TestIssue122(t *testing.T) {
 	segments, _, _ := out.LoadGlyph(38, nil)
 	tu.Assert(t, len(segments) == 12)
 }
+
+// TestParseIndexContentBounds guards against a malformed INDEX header driving
+// a huge allocation. The CFF2 INDEX header parser does not validate offSize
+// (unlike CFF1), so a font can present offSize 0 — which zeroes the length
+// check — or a 32-bit count far larger than the data; parseIndexContent must
+// reject these instead of make([][]byte, count)-ing gigabytes.
+func TestParseIndexContentBounds(t *testing.T) {
+	// Minimal valid INDEX: count 1, offSize 1, offsets [1,2], one data byte.
+	valid := []byte{0x01, 0x02, 0xAA}
+	out, _, err := parseIndexContent(valid, indexStart{count: 1, offSize: 1})
+	tu.AssertNoErr(t, err)
+	tu.Assert(t, len(out) == 1 && len(out[0]) == 1 && out[0][0] == 0xAA)
+
+	// offSize 0 must be rejected before the allocation.
+	_, _, err = parseIndexContent(valid, indexStart{count: 1 << 20, offSize: 0})
+	tu.Assert(t, err != nil)
+
+	// A count larger than the data can address must be rejected (also covers
+	// the count+1 uint32 wrap at 0xFFFFFFFF).
+	_, _, err = parseIndexContent(valid, indexStart{count: 0xFFFFFFFF, offSize: 1})
+	tu.Assert(t, err != nil)
+}

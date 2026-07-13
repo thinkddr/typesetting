@@ -281,7 +281,21 @@ func parseIndexContent(src []byte, header indexStart) ([][]byte, int, error) {
 		return nil, 0, nil
 	}
 	oSize := int(header.offSize)
-	offsetArraySize := int(header.count+1) * oSize
+	// offSize must be 1..4 (CFF spec, 5176 §5). The CFF2 INDEX header parser
+	// (indexStart.mustParse) does not validate it the way the CFF1 path does,
+	// so a malformed font can present offSize 0 — which zeroes offsetArraySize
+	// below and defeats the length check — or a huge 32-bit count. Either lets
+	// make([][]byte, count) allocate gigabytes before the loop errors out.
+	// Reject a bad offSize and bound count by the bytes actually available for
+	// the offset array (each of the count+1 offsets is oSize bytes). int()
+	// widens count to avoid the uint32 wrap in count+1 (0xFFFFFFFF+1 == 0).
+	if oSize < 1 || oSize > 4 {
+		return nil, 0, fmt.Errorf("reading INDEX: invalid offSize %d", oSize)
+	}
+	if int(header.count) > len(src)/oSize {
+		return nil, 0, fmt.Errorf("reading INDEX: count %d exceeds available data (%d bytes)", header.count, len(src))
+	}
+	offsetArraySize := (int(header.count) + 1) * oSize
 	if L := len(src); L < offsetArraySize {
 		return nil, 0, fmt.Errorf("reading INDEX offsets: EOF: expected length: %d, got %d", offsetArraySize, L)
 	}
