@@ -176,4 +176,14 @@ func TestParseIndexContentBounds(t *testing.T) {
 	// the count+1 uint32 wrap at 0xFFFFFFFF).
 	_, _, err = parseIndexContent(valid, indexStart{count: 0xFFFFFFFF, offSize: 1})
 	tu.Assert(t, err != nil)
+
+	// count exactly len(src)/offSize: the offset array still needs one more
+	// offset than the data holds, so this must be an error rather than a
+	// slice-out-of-range panic on src[offsetArraySize:].
+	_, _, err = parseIndexContent(valid, indexStart{count: 3, offSize: 1})
+	tu.Assert(t, err != nil)
+
+	// offSize > 4 is out of spec and must be rejected.
+	_, _, err = parseIndexContent(valid, indexStart{count: 1, offSize: 5})
+	tu.Assert(t, err != nil)
 }
