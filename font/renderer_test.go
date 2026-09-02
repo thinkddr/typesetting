@@ -643,3 +643,25 @@ func TestColorGlyphs(t *testing.T) {
 	_, ok = face.GlyphDataColor(0)
 	tu.Assert(t, ok)
 }
+
+// A composite glyph whose component references an out-of-range (or otherwise
+// unresolvable) glyph produces fewer contour points than the phantom points
+// appended for a well-formed glyph. The glyph data accessors must treat this
+// as an empty glyph rather than panicking with a negative slice bound.
+func TestGlyphDataMalformedComposite(t *testing.T) {
+	f := &Font{
+		glyf: tables.Glyf{
+			// glyph 0: composite referencing the out-of-range component 5
+			{Data: tables.CompositeGlyph{Glyphs: []tables.CompositeGlyphPart{{GlyphIndex: 5}}}},
+		},
+	}
+	face := Face{Font: f}
+
+	// must not panic, and yields an empty outline
+	out, _ := face.GlyphDataOutline(0)
+	tu.Assert(t, len(out.Segments) == 0)
+
+	if gd, ok := face.GlyphData(0).(GlyphOutline); ok {
+		tu.Assert(t, len(gd.Segments) == 0)
+	}
+}
