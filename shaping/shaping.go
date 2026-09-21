@@ -92,7 +92,22 @@ func (t *HarfbuzzShaper) Shape(input Input) Output {
 		t.fonts.Put(input.Face.Font, font)
 	}
 	// adjust the user provided fields
-	font.XScale = int32(input.Size.Ceil()) << scaleShift
+	//
+	// input.Size is a fixed.Int26_6, i.e. the size in pixels times 64, and
+	// harfbuzz scales font units by XScale/upem. Shifting the raw fixed value
+	// left by scaleShift-6 therefore asks harfbuzz for exactly the requested
+	// size, fraction included, while keeping the 1/64 sub-pixel precision the
+	// scaleShift trick is there to preserve: the returned dimensions are still
+	// divided by 1<<scaleShift below.
+	//
+	// The previous expression was int32(input.Size.Ceil()) << scaleShift, which
+	// quantised every request up to a whole pixel per em. A caller asking for
+	// 12.25px got the advances of 13px — 6.1% wider — and there was no way to
+	// reach a fractional size from the outside. Rounding up is not needed for
+	// precision (the 26.6 input already carries 1/64px) and hurts any caller
+	// laying text out against a design that is specified in fractional CSS
+	// pixels.
+	font.XScale = int32(input.Size) << (scaleShift - 6)
 	font.YScale = font.XScale
 
 	if L := len(input.FontFeatures); cap(t.features) < L {
