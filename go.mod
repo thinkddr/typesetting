@@ -8,7 +8,7 @@
 //
 // Único cambio funcional: `shaping/shaping.go` conforma a ppem FRACCIONARIO en
 // vez de a `ceil`. El porqué, en ADR 0048 de sytue/one.
-module git.gay/daniel.delgado/typesetting
+module github.com/thinkddr/typesetting
 
 go 1.19
 
