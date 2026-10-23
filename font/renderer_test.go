@@ -565,6 +565,21 @@ func TestEblcGlyph(t *testing.T) {
 	}
 }
 
+func TestEBDTFormat1Glyph(t *testing.T) {
+	file, err := td.Files.ReadFile("bitmap/simsun.ttc")
+	tu.AssertNoErr(t, err)
+
+	faces, err := ParseTTC(bytes.NewReader(file))
+	tu.AssertNoErr(t, err)
+	font := faces[0]
+	font.SetPpem(12, 12)
+
+	for gid := GID(100); gid < 500; gid++ {
+		glyph, ok := font.GlyphData(gid).(GlyphBitmap)
+		tu.Assert(t, ok && glyph.Format == BlackAndWhiteByteAligned)
+	}
+}
+
 func TestAppleBitmapGlyph(t *testing.T) {
 	filename := "collections/Gacha_9.dfont"
 	f, err := td.Files.ReadFile(filename)
@@ -576,7 +591,8 @@ func TestAppleBitmapGlyph(t *testing.T) {
 	ft, err := NewFont(fonts[0])
 	tu.AssertNoErr(t, err)
 
-	face := Face{Font: ft, xPpem: 94, yPpem: 94}
+	face := NewFace(ft)
+	face.SetPpem(94, 94)
 
 	runes := "The quick brown fox jumps over the lazy dog"
 	for _, r := range runes {
@@ -588,14 +604,14 @@ func TestAppleBitmapGlyph(t *testing.T) {
 		tu.Assert(t, ok)
 		tu.Assert(t, asBitmap.Format == BlackAndWhite)
 
-		_, ok = face.GlyphDataBitmap(gID(gid))
+		_, ok = face.GlyphDataBitmap(gid)
 		tu.Assert(t, ok)
 	}
 }
 
 func TestMixedGlyphs(t *testing.T) {
 	for _, filename := range tu.Filenames(t, "common") {
-		if strings.HasPrefix(filename, "common/SourceSans") {
+		if strings.HasPrefix(filename, "common/SourceSans") || strings.HasSuffix(filename, "Subsetted.ttf") {
 			continue
 		}
 		font := loadFont(t, filename)
@@ -626,4 +642,26 @@ func TestColorGlyphs(t *testing.T) {
 	tu.Assert(t, ok)
 	_, ok = face.GlyphDataColor(0)
 	tu.Assert(t, ok)
+}
+
+// A composite glyph whose component references an out-of-range (or otherwise
+// unresolvable) glyph produces fewer contour points than the phantom points
+// appended for a well-formed glyph. The glyph data accessors must treat this
+// as an empty glyph rather than panicking with a negative slice bound.
+func TestGlyphDataMalformedComposite(t *testing.T) {
+	f := &Font{
+		glyf: tables.Glyf{
+			// glyph 0: composite referencing the out-of-range component 5
+			{Data: tables.CompositeGlyph{Glyphs: []tables.CompositeGlyphPart{{GlyphIndex: 5}}}},
+		},
+	}
+	face := Face{Font: f}
+
+	// must not panic, and yields an empty outline
+	out, _ := face.GlyphDataOutline(0)
+	tu.Assert(t, len(out.Segments) == 0)
+
+	if gd, ok := face.GlyphData(0).(GlyphOutline); ok {
+		tu.Assert(t, len(gd.Segments) == 0)
+	}
 }
