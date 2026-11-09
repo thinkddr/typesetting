@@ -1,2 +1,4 @@
 .idea
 
+# Local settings of AI coding agents (per machine and per session)
+.claude/
